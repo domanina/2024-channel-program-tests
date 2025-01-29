@@ -1,0 +1,77 @@
+image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.11
+
+stages:
+  - test
+  - history_copy
+  - reports
+  - deploy
+  - notification
+
+test:
+  stage: test
+  tags:
+    - docker
+  variables:
+    ALLURE_RESULTS: "allure-results"
+  artifacts:
+    when: always
+    paths:
+      - ./allure-results
+  script:
+    - pip3 install -r requirements.txt > /dev/null
+    - pytest -s -vv --color=yes --alluredir=allure-results
+
+
+history_job:
+  stage: history_copy
+  tags:
+    - docker
+  image:  ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/storytel/alpine-bash-curl
+  script:
+    - 'curl --location --output artifacts.zip "https://gitlab/api/v4/projects/$CI_PROJECT_ID/jobs/artifacts/main/download?job=pages&job_token=$CI_JOB_TOKEN"'
+    - apk add unzip
+    - unzip artifacts.zip
+    - chmod -R 777 public
+    - cp -r ./public/history ./allure-results
+  allow_failure: true
+  artifacts:
+    paths:
+      - ./allure-results
+    expire_in: 1 day
+  rules:
+    - when: always
+
+allure_job:
+  stage: reports
+  tags:
+    - docker
+  image:  ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/frankescobar/allure-docker-service
+  script:
+     - allure generate -c ./allure-results -o ./allure-report
+  artifacts:
+    paths:
+      - ./allure-results
+      - ./allure-report
+    expire_in: 1 day
+  rules:
+    - when: always
+
+pages:
+  stage: deploy
+  tags:
+    - docker
+  script:
+    - mkdir public
+    - mv ./allure-report/* public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - when: always
+
+notify_error:
+  stage: notification
+  when: on_failure
+  only:
+    - master
+    - main

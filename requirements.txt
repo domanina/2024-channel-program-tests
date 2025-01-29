@@ -1,0 +1,10 @@
+pytest==8.0.0
+requests==2.31.0
+allure-pytest==2.13.5
+jsonschema==4.21.1
+urllib3==2.3.0
+python-dateutil
+deepdiff==6.7.1
+python-dotenv==1.0.1
+PyMySQL==1.1.0
+pydantic==2.10.6
